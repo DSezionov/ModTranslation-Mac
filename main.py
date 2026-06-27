@@ -145,8 +145,12 @@ class Validator:
     @staticmethod
     @logger.catch()
     def __drive_existence(path: Path) -> bool:
-        drive_existence = Path(path.drive).exists() and bool(re.findall('.+:.+', str(path)))
-        return drive_existence
+        # On Windows, check that the drive letter (e.g. C:) exists.
+        # On macOS/Linux, all absolute paths share a single root; treat any
+        # non-empty path as having a valid "drive".
+        if path.drive:
+            return Path(path.drive).exists()
+        return bool(str(path))
 
     @logger.catch()
     def validate_game_path(self, path: Path):

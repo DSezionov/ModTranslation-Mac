@@ -1,25 +1,22 @@
 import math
 import os
-import webbrowser
-
-from PyQt5 import QtWidgets, QtGui, QtCore
-
+import subprocess
 import sys
+import webbrowser
 from pathlib import Path
 
+from PyQt5 import QtWidgets, QtGui, QtCore
 from PyQt5.QtCore import pyqtSlot
 from loguru import logger
 
 from gui.stat_table_window import StatTableWindow
 from info_data import InfoData
-from settings import BASE_DIR, HOME_DIR, TRANSLATIONS_DIR, SCREEN_SIZE, PROGRAM_VERSION
+from settings import BASE_DIR, HOME_DIR, TRANSLATIONS_DIR, SCREEN_SIZE, PROGRAM_VERSION, APP_SUPPORT_DIR
 from gui.dialog_window import CustomDialog
 from gui.settings_window import SettingsWindow
 from languages.language_constants import LanguageConstants, StatWindowConstants, SettingsWindowConstants
 from main import Prepper, ModernParadoxGamesPerformer, Settings, TranslatorAccount
 from gui.window_ui.MainWindow import Ui_MainWindow
-import ctypes
-
 from translators.translator_manager import TranslatorManager
 from utils.gui.info_utils import AddInfoIcons
 
@@ -33,7 +30,9 @@ if hasattr(QtCore.Qt, 'AA_UseHighDpiPixmaps'):
 class MainWindow(QtWidgets.QMainWindow):
 
     def __init__(self, parent=None):
-        logger.add(sink=BASE_DIR / 'logs/debug.log', rotation='10 MB', compression="zip")
+        log_dir = APP_SUPPORT_DIR / 'logs'
+        log_dir.mkdir(parents=True, exist_ok=True)
+        logger.add(sink=log_dir / 'debug.log', rotation='10 MB', compression="zip")
 
         super(MainWindow, self).__init__(parent=parent)
         self.__ui = Ui_MainWindow()
@@ -124,19 +123,9 @@ class MainWindow(QtWidgets.QMainWindow):
 
     @logger.catch()
     def __init_settings(self):
-        if (HOME_DIR / 'Documents').exists():
-            local_data_path = (HOME_DIR / 'Documents' / 'ModTranslationHelper')
-            self.__settings = Settings(local_data_path)
-            self.__translator_accounts = TranslatorAccount(local_path=local_data_path)
-        else:
-            logger.warning(f'{HOME_DIR} / Documents - not exists')
-            local_data_path = BASE_DIR / 'Settings'
-            self.__settings = Settings(local_data_path)
-            self.__translator_accounts = TranslatorAccount(local_path=local_data_path)
-            self.__init_languages()
-            error = CustomDialog(parent=self.__ui.centralwidget, text=LanguageConstants.error_settings_file_not_exist,
-                                 icon_path=str(BASE_DIR / 'icons/error icon.jpg'))
-            error.show()
+        local_data_path = APP_SUPPORT_DIR
+        self.__settings = Settings(local_data_path)
+        self.__translator_accounts = TranslatorAccount(local_path=local_data_path)
 
     @logger.catch()
     def __init_app_position(self):
@@ -293,7 +282,7 @@ class MainWindow(QtWidgets.QMainWindow):
     @logger.catch()
     def __open_game_directory(self):
         if self.__prepper.get_game_path_validate_result():
-            os.startfile(self.__prepper.get_game_path())
+            subprocess.run(['open', str(self.__prepper.get_game_path())])
         else:
             error = CustomDialog(parent=self, text=self.__prepper.get_game_path(),
                                  icon_path=str(BASE_DIR / 'icons/error icon.jpg'))
@@ -326,7 +315,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __open_original_directory(self):
         if self.__prepper.get_original_mode_path_validate_result():
-            os.startfile(self.__prepper.get_original_mode_path())
+            subprocess.run(['open', str(self.__prepper.get_original_mode_path())])
         else:
             error = CustomDialog(parent=self, text=self.__prepper.get_original_mode_path(),
                                  icon_path=str(BASE_DIR / 'icons/error icon.jpg'))
@@ -357,7 +346,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __open_previous_directory(self):
         if self.__prepper.get_previous_path_validate_result():
-            os.startfile(self.__prepper.get_previous_path())
+            subprocess.run(['open', str(self.__prepper.get_previous_path())])
         else:
             error = CustomDialog(parent=self, text=self.__prepper.get_previous_path(),
                                  icon_path=str(BASE_DIR / 'icons/error icon.jpg'))
@@ -385,7 +374,7 @@ class MainWindow(QtWidgets.QMainWindow):
 
     def __open_target_directory(self):
         if self.__prepper.get_target_path_validate_result() and self.__prepper.get_target_path().exists():
-            os.startfile(self.__prepper.get_target_path())
+            subprocess.run(['open', str(self.__prepper.get_target_path())])
         else:
             error = CustomDialog(parent=self, text=self.__prepper.get_target_path(),
                                  icon_path=str(BASE_DIR / 'icons/error icon.jpg'))
@@ -599,7 +588,8 @@ class ResizeWindow:
         self.new_width = size.width()
         self.new_height = size.height()
 
-        self.scale_factor = ctypes.windll.shcore.GetScaleFactorForDevice(0) / 100
+        screen = QtWidgets.QApplication.primaryScreen()
+        self.scale_factor = screen.devicePixelRatio() if screen else 1.0
 
         self._validate_screen_size()
 
